@@ -1,0 +1,65 @@
+int ls1 = 10; // limited switch 1
+int ls2 = 12; // limited switch 2
+int S = 11;// sensor 
+int e1 = 5;
+int e2 = 6;
+int i1 = 2;
+int i2 = 3;
+void setup() {
+	Serial.begin(9600);
+	pinMode(ls1, INPUT_PULLUP);
+	pinMode(ls2, INPUT_PULLUP);
+	pinMode(S, INPUT);
+	pinMode(i1, OUTPUT);
+	pinMode(i2, OUTPUT);
+	pinMode(e1, OUTPUT);
+	pinMode(e2, OUTPUT);
+}
+void loop() {
+
+	int rls1 = digitalRead(ls1); // read ls1
+	int rls2 = digitalRead(ls2); // read ls2
+	int rS = digitalRead(S);// read sensor 
+	if (rls1 == 0 && rls2 == 1 && rS == 1) {
+		stop();
+	}
+	else if (rls1 == 0 && rls2 == 1 && rS == 0) {
+		forward();
+	}
+	else if (rls1 == 1 && rls2 == 1 && rS == 0) {
+		forward();
+	}
+	else if (rls1 == 1 && rls2 == 1 && rS == 1) {
+		goback();
+	}
+	else if (rls1 == 1 && rls2 == 0 && rS == 0) {
+		stop();
+	}
+	else if (rls1 == 1 && rls2 == 0 && rS == 1) {
+		goback();
+	}
+
+
+	Serial.print(rls1);
+	Serial.print(rls2);
+	Serial.println(rS);
+
+}
+void forward() {
+	digitalWrite(i1, HIGH);
+	digitalWrite(i2, LOW);
+	analogWrite(e1, 150);
+	analogWrite(e2, 150);
+}
+void goback() {
+	digitalWrite(i1, LOW);
+	digitalWrite(i2, HIGH);
+	analogWrite(e1, 150);
+	analogWrite(e2, 150);
+}
+void stop() {
+	digitalWrite(i1, LOW);
+	digitalWrite(i2, LOW);
+	analogWrite(e1, 0);
+	analogWrite(e2, 0);
+}

@@ -1,55 +1,59 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <stdlib.h>
-#include <Servo.h>
 //Firebase Library
 #include <Firebase.h>
-#include <addons/TokenHelper.h>
 #include <addons/RTDBHelper.h>
-
+#include <Robojax_L298N_DC_motor.h>
 //Firebase Declare
 #define API_KEY "yOCt9u60Y2BPBRag3JISLFlc0x1iEnZblPwiJ8MZ"
 #define DATABASE_URL "https://esp32-ac263-default-rtdb.firebaseio.com/"
 
-#define WIFI_SSID "DUC DUY_VNPT"
-#define WIFI_PASSWORD "duc06012002"
+#define WIFI_SSID "Ducnguyen"
+#define WIFI_PASSWORD "00000000"
 
+//Phong khach:
 //input den phong khach
 #define DenPK 4
-
 //input den doi mau phong khach
 #define BluePk 0
 #define GreenPk 2
 #define RedPK 15
+//input cua
+#define EnB 21
+#define In3 22
+#define In4 23
+#define Door 1
+#define sensor 33 //cam bien hong ngoai
 
+//Phong ngu:
 //input quat phong ngu
 #define In1 18
 #define In2 19
 #define Ena 5
-
+#define Fan 2
 //input den phong ngu
 #define DenPN 26
-
 //input den doi mau phong ngu
 #define BluePN 27
 #define GreenPN 14
 #define RedPN 12
 
+//Phong bep:
 // input cam bien gas phong bep
-#define DenPB 34
-#define analog 32
-#define digital 33
+#define analog 34
+//input den phong bep
+#define DenPB 16
+#define coi 25
 
+//Phong tam:
 //input cam bien phong tam
-#define DenPT
+#define DenPT 13
 
-const int freq = 5000;  // tần số xung
-const int ledChannel = 0; // kênh PWM
-const int resolution = 8; // độ phân giải 8bit
+hw_timer_t *timer = NULL;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
-//delay
-unsigned long previousMillis = 0;     
-const long interval = 1000; // giá trị delay (milliseconds)
+const int dongcua = 0;
+const int mocua = 1;
 
 int dataquat = 0;
 int datadendoimaupn = 0;
@@ -61,12 +65,14 @@ int datahengiopn = 0;
 int datahengioquat = 0;
 int dataspeed = 0;
 int datahengiopt,datahengiopb;
-int datadenpt,datadenpb;
-int ledState = LOW; 
+int datadenpb = 0;
+int datacua = 0;
+int temp = 1;
 
 int port = 8888;
 WiFiServer Server(port);
 FirebaseData firebaseData;
+Robojax_L298N_DC_motor robot(In1, In2, Ena, In3, In4, EnB, true);
 
 
 // dang nhap wifi
@@ -109,6 +115,32 @@ void initden(int dataden,int Den,int datahengio){
     }
   }
 }
+ int Sen; 
+void initcua(int data){
+  if(Sen == 1){
+    if (data == temp){
+     robot.brake(Door);
+     delay(20);
+    }else{
+      if(data == 0){
+        robot.rotate(Door, 100, mocua);
+        delay(20);
+      }else if(data == 1){
+        robot.rotate(Door, 100, dongcua);
+        delay(20);
+     } 
+   }
+  }else{
+    if(data = 0){
+      robot.brake(Door);
+    }else{
+      robot.rotate(Door, 100, mocua);
+      Firebase.setInt (firebaseData, "/phong khach/cua" ,0); 
+      delay(20);
+    }
+  }
+  temp = data;
+}
 void initquat(){
   if (Firebase.RTDB.getString(&firebaseData, F("/Phong ngu/Quat"),&data5base)){
       dataquat = data5base.toInt();
@@ -119,43 +151,29 @@ void initquat(){
   if(dataquat == 1){
     if (dataspeed == 1){
       //nhanh nhat    
-      digitalWrite(In1 , LOW);
-      digitalWrite(In2 , HIGH);
-      ledcWrite(ledChannel, 255);
+      robot.rotate(Fan, 100, 1);
     }else if(dataspeed == 2){
-      digitalWrite(In1 , LOW);
-      digitalWrite(In2 , HIGH);      
-      ledcWrite(ledChannel, 200);
+      robot.rotate(Fan, 85, 1);
     }else if(dataspeed == 3){
-      digitalWrite(In1 , LOW);
-      digitalWrite(In2 , HIGH);      
-      ledcWrite(ledChannel, 150);
+      robot.rotate(Fan, 70, 1);
     }
   }else if (dataquat == 0){
     //tat
-      digitalWrite(In1 , LOW);
-      digitalWrite(In2 , LOW); 
+      robot.brake(Fan);
   }else {
     if (Firebase.RTDB.getString(&firebaseData, F("/Phong ngu/Hengioquat"),&data5base)){
     datahengioquat = data5base.toInt();
       if (datahengioquat == 1){
         if (dataspeed == 1){
       //nhanh nhat    
-        digitalWrite(In1 , LOW);
-        digitalWrite(In2 , HIGH);
-        ledcWrite(ledChannel, 255);
+        robot.rotate(Fan, 100, 1);
       }else if(dataspeed == 2){
-        digitalWrite(In1 , LOW);
-        digitalWrite(In2 , HIGH);      
-        ledcWrite(ledChannel, 200);
+        robot.rotate(Fan, 80, 1);
       }else if(dataspeed == 3){
-        digitalWrite(In1 , LOW);
-        digitalWrite(In2 , HIGH);      
-        ledcWrite(ledChannel, 150);
+        robot.rotate(Fan, 70, 1);
       }
       }else {
-        digitalWrite(In1 , LOW);
-        digitalWrite(In2 , LOW); 
+        robot.brake(Fan);
      
       }
     }
@@ -257,6 +275,10 @@ void initdendoimau(int datadendoimau,int Red,int Blue,int Green){
   }  
 }
 void Phongkhach(){
+   if (Firebase.RTDB.getString(&firebaseData, F("phong khach/cua"),&data5base)){
+    datacua = data5base.toInt();
+    initcua(datacua);
+  }
   if (Firebase.RTDB.getString(&firebaseData, F("/phong khach/dendoimau"),&data5base)){
     datadendoimaupk = data5base.toInt();
     initdendoimau(datadendoimaupk,RedPK,BluePk,GreenPk);
@@ -284,16 +306,28 @@ void Phongngu(){
     }
   }
 }
-void Phongbep(){
-  int value = analogRead(analog);
+int value;
+void IRAM_ATTR Sensorgas(){
+  value = analogRead(analog);
+  Serial.print("Sensorgas = ");
   Serial.println(value);
-  delay(500);
-  if (value >= 1000){
-    Firebase.setInt (firebaseData, "/Phong bep/Sensorgas" ,1);
-    delay(500);
+  Sen = digitalRead(sensor);
+  Serial.print("Sensordoor = ");
+  Serial.println(Sen);
+  if (value > 1200){
+    Serial.println("bat coi");
+    digitalWrite(coi,HIGH);
   }else{
-    Firebase.setInt (firebaseData, "/Phong bep/Sensorgas" ,0);
-    delay(500);
+    digitalWrite(coi,LOW);
+  }
+}
+void Phongbep(){
+  if(value > 1200){
+    Firebase.setString(firebaseData,"/Phong bep/Sensorgas",1);
+    delay(50);
+  }else{
+    Firebase.setString(firebaseData,"/Phong bep/Sensorgas",0);
+    delay(50);
   }
   if (Firebase.RTDB.getString(&firebaseData, F("/Phong bep/Den"),&data5base)){
     datadenpb = data5base.toInt();
@@ -303,38 +337,28 @@ void Phongbep(){
     }
   } 
 }
-void Phongtam(){
-   if (Firebase.RTDB.getString(&firebaseData, F("/Phong bep/Den"),&data5base)){
-    datadenpt = data5base.toInt();
-    if (Firebase.RTDB.getString(&firebaseData, F("/Phong bep/Hengio"),&data5base)){
-    datahengiopt = data5base.toInt();
-    initden(datadenpt,DenPB,datahengiopt);
-    }
-  } 
-}
 void setup() {
   // put your setup code here, to run once:
+   timer = timerBegin(0, 80, true); // Timer 0, prescaler of 80 (1MHz clock)
+  
+  // Attach the onTimer function as the interrupt handler
+  timerAttachInterrupt(timer, &Sensorgas, true);
+  
+  // Set the timer to trigger every 1 second (1000000 microseconds)
+  timerAlarmWrite(timer, 1000000, true);
+  
+  // Start the timer
+  timerAlarmEnable(timer);
+  pinMode(sensor, INPUT);
+  pinMode(coi,OUTPUT);
   initWiFi();
   initFirebase();
-  
-  //init quat
-  pinMode(Ena,OUTPUT);
-  pinMode(In1,OUTPUT);
-  pinMode(In2,OUTPUT);
-  digitalWrite(Ena, LOW);
-  digitalWrite(In1, LOW);
-  digitalWrite(In2, LOW);
-  
-  // setup kênh pwm
-  ledcSetup(ledChannel, freq, resolution);
-  // xuất pwm ra chân 14
-  ledcAttachPin(Ena, ledChannel);
+  robot.begin();
 }
 void loop() {
   initquat();
   Phongngu();
   Phongkhach();
   Phongbep();
-  Phongtam();
   // put your main code here, to run repeatedly:
 }
