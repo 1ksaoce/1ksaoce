@@ -314,7 +314,7 @@ void IRAM_ATTR Sensorgas(){
   Sen = digitalRead(sensor);
   Serial.print("Sensordoor = ");
   Serial.println(Sen);
-  if (value > 1200){
+  if (value > 2000){
     Serial.println("bat coi");
     digitalWrite(coi,HIGH);
   }else{
@@ -322,7 +322,7 @@ void IRAM_ATTR Sensorgas(){
   }
 }
 void Phongbep(){
-  if(value > 1200){
+  if(value > 2000){
     Firebase.setString(firebaseData,"/Phong bep/Sensorgas",1);
     delay(50);
   }else{
